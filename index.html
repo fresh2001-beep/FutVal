@@ -975,15 +975,15 @@ async function fetchFromAPI() {
   const COMPETITION = 'PL';
   showLoading();
   try {
-    // Use CORS proxy for browser requests
-    const targetUrl = encodeURIComponent('https://api.football-data.org/v4/competitions/' + COMPETITION + '/teams?token=' + API_KEY);
-    const proxyUrl = 'https://api.allorigins.win/get?url=' + targetUrl;
+    // Use corsproxy.io
+    const targetUrl = 'https://api.football-data.org/v4/competitions/' + COMPETITION + '/teams';
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
 
-    const teamsResp = await fetch(proxyUrl);
+    const teamsResp = await fetch(proxyUrl, {
+      headers: { 'X-Auth-Token': API_KEY }
+    });
     if (!teamsResp.ok) throw new Error('HTTP ' + teamsResp.status);
-
-    const proxyData = await teamsResp.json();
-    const teamsData = JSON.parse(proxyData.contents);
+    const teamsData = await teamsResp.json();
     const teams = teamsData.teams || [];
 
     if (!teams.length) throw new Error('No teams returned');
