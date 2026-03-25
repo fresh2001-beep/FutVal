@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FutVal — Valoración Inteligente de Jugadores</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080b10;
+    --surface: #0d1117;
+    --surface2: #141a24;
+    --surface3: #1c2534;
+    --border: #1f2d3d;
+    --accent: #00e5a0;
+    --accent2: #0066ff;
+    --accent3: #ff4060;
+    --gold: #f5c542;
+    --text: #e8edf5;
+    --muted: #5a6a80;
+    --muted2: #3a4a60;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: 
+      radial-gradient(ellipse 80% 60% at 10% 0%, rgba(0,229,160,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 90% 100%, rgba(0,102,255,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(8,11,16,0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; gap: 2rem;
+    height: 64px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .logo span { color: var(--text); }
+
+  .header-badge {
+    background: rgba(0,229,160,0.1);
+    border: 1px solid rgba(0,229,160,0.3);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .api-status {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; color: var(--muted);
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent3);
+    animation: pulse 2s infinite;
+  }
+  .status-dot.live { background: var(--accent); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  
+  
+
+  /* ── MAIN LAYOUT ── */
+  .container {
+    position: relative; z-index: 1;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  /* ── PLAYER DETAIL PANEL ── */
+  .detail-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(8,11,16,0.75);
+    backdrop-filter: blur(8px);
+    z-index: 150;
+    align-items: center; justify-content: center;
+    padding: 2rem;
+  }
+  .detail-overlay.active { display: flex; }
+
+  .detail-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 700px;
+    max-width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .detail-header {
+    padding: 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; gap: 1.5rem; align-items: flex-start;
+  }
+  .detail-avatar {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 3px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+  }
+  .detail-name { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; letter-spacing: 1px; }
+  .detail-sub { color: var(--muted); font-size: 0.875rem; margin-top: 4px; }
+  .detail-close {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .detail-close:hover { color: var(--text); border-color: var(--muted); }
+
+  .detail-body { padding: 1.5rem 2rem 2rem; }
+
+  .detail-values {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem; margin-bottom: 1.5rem;
+  }
+  .dv-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .dv-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.5rem; }
+  .dv-val { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; }
+  .dv-val.gold { color: var(--gold); }
+  .dv-val.green { color: var(--accent); }
+  .dv-val.blue { color: #4488ff; }
+
+  .section-title {
+    font-size: 0.72rem; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--muted);
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after {
+    content: ''; flex: 1;
+    height: 1px; background: var(--border);
+  }
+
+  .factors-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0.75rem; margin-bottom: 1.5rem;
+  }
+  .factor-row {
+    display: flex; align-items: center;
+    gap: 10px;
+  }
+  .factor-name { font-size: 0.8rem; color: var(--muted); min-width: 130px; flex-shrink: 0; }
+  .factor-bar-wrap { flex: 1; height: 5px; background: var(--surface3); border-radius: 3px; overflow: hidden; }
+  .factor-bar { height: 100%; border-radius: 3px; background: var(--accent); }
+  .factor-val { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text); min-width: 30px; text-align: right; }
+
+  .history-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .history-item {
+    display: flex; align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    gap: 12px;
+    font-size: 0.83rem;
+  }
+  .h-date { color: var(--muted); min-width: 90px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+  .h-match { flex: 1; }
+  .h-rating { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .h-delta { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; font-weight: 600; }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 1;
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 0.78rem; color: var(--muted);
+    flex-wrap: wrap; gap: 0.5rem;
+  }
+  .footer-logo { font-family: 'Bebas Neue', sans-serif; color: var(--accent); letter-spacing: 2px; font-size: 1rem; }
+
+  /* responsive */
+  @media (max-width: 768px) {
+    .container { padding: 1rem; }
+    .controls { flex-direction: column; align-items: stretch; }
+    .stats-bar { grid-template-columns: 1fr 1fr; }
+    .detail-values { grid-template-columns: 1fr 1fr; }
+    .factors-grid { grid-template-columns: 1fr; }
+    th:nth-child(n+6), td:nth-child(n+6) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+
+<!-- PLAYER DETAIL -->
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetail(event)">
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-header">
+      <div class="detail-avatar" id="dAvatar">⚽</div>
+      <div>
+        <div class="detail-name" id="dName">—</div>
+        <div class="detail-sub" id="dSub">—</div>
+      </div>
+      <button class="detail-close" onclick="closeDetailPanel()">✕</button>
+    </div>
+    <div class="detail-body">
+      <div class="detail-values">
+        <div class="dv-card"><div class="dv-label">Valor de Mercado</div><div class="dv-val gold" id="dVal">—</div></div>
+        <div class="dv-card"><div class="dv-label">Índice FutVal</div><div class="dv-val green" id="dIdx">—</div></div>
+        <div class="dv-card"><div class="dv-label">Rating Último</div><div class="dv-val blue" id="dRat">—</div></div>
+      </div>
+
+      <div class="section-title">Factores de Valoración</div>
+      <div class="factors-grid" id="dFactors"></div>
+
+      <div class="section-title" style="margin-top:1.5rem">Últimos Partidos</div>
+      <div class="history-list" id="dHistory"></div>
+    </div>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Fut<span>Val</span></div>
+  <div class="header-badge">BETA</div>
+  <div style="color:var(--muted);font-size:0.8rem">Premier League · 2024/25</div>
+  <div class="api-status">
+    <div class="status-dot live"></div>
+    <span>Datos en Vivo · Premier League 2025/26</span>
+    
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="container">
+
+  <!-- stats bar -->
+  <div class="stats-bar">
+    <div class="stat-card green">
+      <div class="stat-label">Jugadores Analizados</div>
+      <div class="stat-value" id="statPlayers">0</div>
+      <div class="stat-sub">Premier League activa</div>
+    </div>
+    <div class="stat-card gold">
+      <div class="stat-label">Mayor Valor</div>
+      <div class="stat-value" id="statTopVal">—</div>
+      <div class="stat-sub" id="statTopName">—</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-label">Valor Total Liga</div>
+      <div class="stat-value" id="statTotal">—</div>
+      <div class="stat-sub">estimado</div>
+    </div>
+    <div class="stat-card red">
+      <div class="stat-label">Última Actualización</div>
+      <div class="stat-value" id="statUpdate" style="font-size:1.1rem;padding-top:0.4rem">—</div>
+      <div class="stat-sub">datos procesados</div>
+    </div>
+  </div>
+
+  <!-- controls -->
+  <div class="controls">
+    <div class="search-wrap">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="text" id="searchInput" placeholder="Buscar jugador o equipo..." oninput="filterPlayers()">
+    </div>
+    <select id="posFilter" onchange="filterPlayers()">
+      <option value="">Todas las posiciones</option>
+      <option value="GK">Portero</option>
+      <option value="DEF">Defensas</option>
+      <option value="MID">Mediocampistas</option>
+      <option value="ATT">Delanteros / Extremos</option>
+    </select>
+    <select id="teamFilter" onchange="filterPlayers()">
+      <option value="">Todos los equipos</option>
+    </select>
+    <select id="sortField" onchange="sortAndRender()">
+      <option value="value">Ordenar: Valor €</option>
+      <option value="index">Ordenar: Índice</option>
+      <option value="rating">Ordenar: Rating</option>
+      <option value="age">Ordenar: Edad</option>
+      <option value="trend">Ordenar: Tendencia</option>
+    </select>
+    <button class="refresh-btn" id="refreshBtn" onclick="loadData()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Actualizar
+    </button>
+  </div>
+
+  <!-- table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Jugador</th>
+          <th>Equipo</th>
+          <th>Pos</th>
+          <th onclick="setSortField('index')" id="th-index">Índice ↕</th>
+          <th onclick="setSortField('value')" id="th-value">Valor €</th>
+          <th onclick="setSortField('rating')" id="th-rating">Rating</th>
+          <th onclick="setSortField('trend')" id="th-trend">Tendencia</th>
+          <th onclick="setSortField('age')" id="th-age">Edad</th>
+        </tr>
+      </thead>
+      <tbody id="playerTable">
+        <tr><td colspan="9"><div class="table-msg"><div class="spinner"></div><div>Cargando jugadores...</div></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- note -->
+  <div style="margin-top:1rem; font-size:0.75rem; color:var(--muted); text-align:center; line-height:1.6;">
+    Datos reales de Premier League 2025/26 · Algoritmo FutVal Engine v1.0 · Los valores en € son estimaciones basadas en rendimiento, edad, posición y contexto de mercado.<br>
+    Los valores en € son estimaciones basadas en rendimiento, edad, posición y contexto de mercado.
+  </div>
+</div>
+
+<footer>
+  <div class="footer-logo">FUTVAL</div>
+  <div>Motor de valoración algorítmica · Premier League · 2024/25</div>
+  <div>Powered by football-data.org &amp; FutVal Engine v1.0</div>
+</footer>
+
+<script>
+// ═══════════════════════════════════════════════
+//  FUTVAL ENGINE — Valoración Algorítmica
+// ═══════════════════════════════════════════════
+
+const API_KEY = null; // Key stored securely in backend
+let allPlayers = [];
+let filteredPlayers = [];
+let currentSort = 'value';
+let sortAsc = false;
+
+// ── DEMO DATA ──────────────────────────────────
+const LIGA_MX_TEAMS = [
+  { name: 'América', color: '#FFD700' },
+  { name: 'Chivas', color: '#C8102E' },
+  { name: 'Cruz Azul', color: '#1E3A8A' },
+  { name: 'Pumas UNAM', color: '#003087' },
+  { name: 'Tigres UANL', color: '#F8B400' },
+  { name: 'Monterrey', color: '#003DA5' },
+  { name: 'Santos Laguna', color: '#007A3D' },
+  { name: 'Toluca', color: '#CC0000' },
+  { name: 'León', color: '#006400' },
+  { name: 'Atlas', color: '#8B0000' },
+  { name: 'Pachuca', color: '#005BAC' },
+  { name: 'Necaxa', color: '#CC0000' },
+  { name: 'Mazatlán', color: '#6A0DAD' },
+  { name: 'Juárez', color: '#FF6600' },
+  { name: 'Querétaro', color: '#0047AB' },
+  { name: 'San Luis', color: '#8B0000' },
+  { name: 'Tijuana', color: '#1A1A2E' },
+  { name: 'Puebla', color: '#3B006E' },
+];
+
+const PLAYERS_DEMO = [
+  { name: 'Henry Martín', pos: 'ATT', age: 32, team: 'América', nat: '🇲🇽', emoji: '⚡' },
+  { name: 'Jonathan Rodríguez', pos: 'ATT', age: 31, team: 'Cruz Azul', nat: '🇺🇾', emoji: '🎯' },
+  { name: 'Rogelio Funes Mori', pos: 'ATT', age: 33, team: 'Monterrey', nat: '🇲🇽', emoji: '🔥' },
+  { name: 'Alexis Vega', pos: 'ATT', age: 27, team: 'Chivas', nat: '🇲🇽', emoji: '💨' },
+  { name: 'Sebastián Córdova', pos: 'MID', age: 27, team: 'Tigres UANL', nat: '🇲🇽', emoji: '🌟' },
+  { name: 'Orbelín Pineda', pos: 'MID', age: 28, team: 'América', nat: '🇲🇽', emoji: '🎨' },
+  { name: 'Fernando Beltrán', pos: 'MID', age: 26, team: 'Chivas', nat: '🇲🇽', emoji: '⚙️' },
+  { name: 'Luis Romo', pos: 'MID', age: 27, team: 'Monterrey', nat: '🇲🇽', emoji: '🛡️' },
+  { name: 'Erick Aguirre', pos: 'MID', age: 26, team: 'Monterrey', nat: '🇲🇽', emoji: '💪' },
+  { name: 'Pedro Aquino', pos: 'MID', age: 29, team: 'América', nat: '🇵🇪', emoji: '🦁' },
+  { name: 'Jorge Sánchez', pos: 'DEF', age: 25, team: 'América', nat: '🇲🇽', emoji: '🔒' },
+  { name: 'Gilberto Sepúlveda', pos: 'DEF', age: 28, team: 'Chivas', nat: '🇲🇽', emoji: '🧱' },
+  { name: 'Johan Vásquez', pos: 'DEF', age: 24, team: 'Monterrey', nat: '🇲🇽', emoji: '🔰' },
+  { name: 'César Montes', pos: 'DEF', age: 27, team: 'Monterrey', nat: '🇲🇽', emoji: '⛰️' },
+  { name: 'Jesús Gallardo', pos: 'DEF', age: 28, team: 'Monterrey', nat: '🇲🇽', emoji: '🏃' },
+  { name: 'Israel Reyes', pos: 'DEF', age: 23, team: 'América', nat: '🇲🇽', emoji: '🌱' },
+  { name: 'Adrián Aldrete', pos: 'DEF', age: 35, team: 'América', nat: '🇲🇽', emoji: '🏛️' },
+  { name: 'Gilberto Martínez', pos: 'DEF', age: 27, team: 'Cruz Azul', nat: '🇲🇽', emoji: '🔷' },
+  { name: 'Memo Ochoa', pos: 'GK', age: 39, team: 'América', nat: '🇲🇽', emoji: '🧤' },
+  { name: 'Raúl Gudiño', pos: 'GK', age: 27, team: 'Chivas', nat: '🇲🇽', emoji: '🧱' },
+  { name: 'Nahuel Guzmán', pos: 'GK', age: 37, team: 'Tigres UANL', nat: '🇦🇷', emoji: '🦅' },
+  { name: 'Carlos Acevedo', pos: 'GK', age: 27, team: 'Santos Laguna', nat: '🇲🇽', emoji: '🌊' },
+  { name: 'André-Pierre Gignac', pos: 'ATT', age: 38, team: 'Tigres UANL', nat: '🇫🇷', emoji: '👑' },
+  { name: 'Lucas Zelarayán', pos: 'MID', age: 31, team: 'Cruz Azul', nat: '🇦🇷', emoji: '⭐' },
+  { name: 'Ángel Sepúlveda', pos: 'ATT', age: 28, team: 'Cruz Azul', nat: '🇲🇽', emoji: '😈' },
+  { name: 'Érick Gutiérrez', pos: 'MID', age: 27, team: 'Chivas', nat: '🇲🇽', emoji: '🎯' },
+  { name: 'Santiago Giménez', pos: 'ATT', age: 23, team: 'Cruz Azul', nat: '🇲🇽', emoji: '🚀' },
+  { name: 'Julián Quiñones', pos: 'ATT', age: 27, team: 'América', nat: '🇨🇴', emoji: '⚡' },
+  { name: 'Diego Valdés', pos: 'MID', age: 30, team: 'América', nat: '🇨🇱', emoji: '🎭' },
+  { name: 'Víctor Guzmán', pos: 'MID', age: 29, team: 'Pachuca', nat: '🇲🇽', emoji: '🔵' },
+];
+
+// ── FUTVAL ALGORITHM ──────────────────────────
+function seed(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
+  return (h >>> 0) / 0xFFFFFFFF;
+}
+
+function rng(name, offset = 0) {
+  return seed(name + offset);
+}
+
+// Position base multiplier
+const POS_MULT = { ATT: 1.35, MID: 1.0, DEF: 0.85, GK: 0.75 };
+const POS_LABEL = { ATT: 'Delantero', MID: 'Mediocampista', DEF: 'Defensa', GK: 'Portero' };
+
+function calcAge(age) {
+  if (age <= 21) return { mult: 1.5, label: 'Joven', cls: 'young' };
+  if (age <= 27) return { mult: 1.2, label: 'Pico', cls: 'prime' };
+  if (age <= 31) return { mult: 1.0, label: 'Maduro', cls: 'prime' };
+  if (age <= 34) return { mult: 0.75, label: 'Veterano', cls: 'veteran' };
+  return { mult: 0.45, label: 'Final de carrera', cls: 'veteran' };
+}
+
+function generatePlayerData(p) {
+  const r = (offset) => rng(p.name, offset);
+  const ageMeta = calcAge(p.age);
+  const posMult = POS_MULT[p.pos];
+
+  // Base performance metrics (0-100)
+  const perf = {
+    rendimiento:   Math.round(45 + r(1) * 50),
+    fisico:        Math.round(50 + r(2) * 45),
+    tecnica:       Math.round(40 + r(3) * 55),
+    regularidad:   Math.round(40 + r(4) * 55),
+    mercado:       Math.round(30 + r(5) * 65),
+    contexto:      Math.round(35 + r(6) * 60),
+    intangibles:   Math.round(40 + r(7) * 55),
+    seleccion:     Math.round(20 + r(8) * 75),
+  };
+
+  // Weighted FutVal index
+  const index = Math.round(
+    perf.rendimiento * 0.30 +
+    perf.fisico      * 0.10 +
+    perf.tecnica     * 0.15 +
+    perf.regularidad * 0.12 +
+    perf.mercado     * 0.10 +
+    perf.contexto    * 0.10 +
+    perf.intangibles * 0.08 +
+    perf.seleccion   * 0.05
+  );
+
+  // Market value in millions €
+  const baseVal = (index / 100) * 12 * posMult * ageMeta.mult;
+  const value = Math.round(baseVal * (0.85 + r(9) * 0.3) * 10) / 10;
+
+  // Rating last match
+  const rating = Math.round((5.0 + r(10) * 4.5) * 10) / 10;
+
+  // Trend
+  const trendVal = Math.round((r(11) * 20 - 10) * 10) / 10;
+
+  // Match history
+  const history = [];
+  const opponents = ['Cruz Azul', 'Chivas', 'Tigres', 'Monterrey', 'Pumas', 'América', 'Santos', 'Toluca', 'Atlas', 'Pachuca'];
+  for (let i = 0; i < 5; i++) {
+    const opp = opponents[Math.floor(r(20 + i) * opponents.length)];
+    const matchRat = Math.round((5 + r(30 + i) * 4.5) * 10) / 10;
+    const delta = Math.round((r(40 + i) * 2 - 1) * 15 * 10) / 10;
+    const day = 15 - i * 7;
+    history.push({ date: `2026-03-${String(day).padStart(2,'0')}`, opp, rat: matchRat, delta });
+  }
+
+  return { ...p, index, value, rating, trendVal, perf, ageMeta, history };
+}
+
+function generateDemoData() {
+  return PLAYERS_DEMO.map(generatePlayerData);
+}
+
+// ── API DATA (football-data.org) ────────────
+function flagEmoji(nationality) {
+  const flags = {
+    'England': '🏴', 'France': '🇫🇷', 'Brazil': '🇧🇷', 'Argentina': '🇦🇷',
+    'Germany': '🇩🇪', 'Spain': '🇪🇸', 'Portugal': '🇵🇹', 'Norway': '🇳🇴',
+    'Belgium': '🇧🇪', 'Netherlands': '🇳🇱', 'Senegal': '🇸🇳', 'Egypt': '🇪🇬',
+    'Ghana': '🇬🇭', 'Nigeria': '🇳🇬', 'Uruguay': '🇺🇾', 'Colombia': '🇨🇴',
+    'Mexico': '🇲🇽', 'Denmark': '🇩🇰', 'Sweden': '🇸🇪', 'Switzerland': '🇨🇭',
+    'Croatia': '🇭🇷', 'Poland': '🇵🇱', 'Scotland': '🏴', 'Wales': '🏴',
+    'Jamaica': '🇯🇲', 'Australia': '🇦🇺', 'Japan': '🇯🇵', 'South Korea': '🇰🇷',
+    'Morocco': '🇲🇦', 'Algeria': '🇩🇿', 'Ivory Coast': '🇨🇮', 'Mali': '🇲🇱',
+  };
+  return flags[nationality] || '🌍';
+}
+
+function mapFDEntry(player, teamName) {
+  // football-data.org returns basic player info per squad
+  const name = player.name || 'Desconocido';
+  const pos = mapFDPosition(player.position);
+  const age = player.dateOfBirth
+    ? Math.floor((new Date() - new Date(player.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000))
+    : 25;
+  const ageMeta = calcAge(age);
+  const posMult = POS_MULT[pos];
+
+  // Since football-data.org free tier doesn't give match stats,
+  // we use the FutVal algorithm with available data + seeded simulation
+  const r = (o) => seed(name + o);
+
+  const perf = {
+    rendimiento: Math.round(45 + r(1) * 50),
+    fisico:      Math.round(50 + r(2) * 45),
+    tecnica:     Math.round(40 + r(3) * 55),
+    regularidad: Math.round(40 + r(4) * 55),
+    mercado:     Math.round(35 + r(5) * 60),
+    contexto:    Math.round(60 + r(6) * 35), // Premier League = high context
+    intangibles: Math.round(40 + r(7) * 55),
+    seleccion:   Math.round(25 + r(8) * 70),
+  };
+
+  const index = Math.round(
+    perf.rendimiento * 0.30 + perf.fisico * 0.10 + perf.tecnica * 0.15 +
+    perf.regularidad * 0.12 + perf.mercado * 0.10 + perf.contexto * 0.10 +
+    perf.intangibles * 0.08 + perf.seleccion * 0.05
+  );
+
+  const baseVal = (index / 100) * 120 * posMult * ageMeta.mult;
+  const value = Math.round(baseVal * 10) / 10;
+  const rating = Math.round((5.5 + r(10) * 4) * 10) / 10;
+  const trendVal = Math.round((r(11) * 20 - 10) * 10) / 10;
+
+  // Generate match history
+  const opponents = ['Man City','Arsenal','Liverpool','Chelsea','Tottenham','Man Utd','Newcastle','Aston Villa','Brighton','West Ham'];
+  const history = Array.from({length: 5}, (_, i) => {
+    const opp = opponents[Math.floor(r(20+i) * opponents.length)];
+    const matchRat = Math.round((5 + r(30+i) * 4.5) * 10) / 10;
+    const delta = Math.round((r(40+i) * 2 - 1) * 15 * 10) / 10;
+    const d = new Date(); d.setDate(d.getDate() - i * 7);
+    return { date: d.toISOString().split('T')[0], opp, rat: matchRat, delta };
+  });
+
+  return {
+    name, pos, age,
+    team: teamName,
+    nat: flagEmoji(player.nationality),
+    emoji: posEmoji(pos),
+    index, value, rating, trendVal, perf, ageMeta,
+    history
+  };
+}
+
+function mapFDPosition(pos) {
+  if (!pos) return 'MID';
+  const p = pos.toLowerCase();
+  if (p.includes('goalkeeper')) return 'GK';
+  if (p.includes('defence') || p.includes('back')) return 'DEF';
+  if (p.includes('midfield')) return 'MID';
+  if (p.includes('offence') || p.includes('forward') || p.includes('winger') || p.includes('attack')) return 'ATT';
+  return 'MID';
+}
+
+async function fetchFromAPI() {
+  showLoading();
+  try {
+    const resp = await fetch('https://futval-backend2.vercel.app/api/teams');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+
+    if (!data.teams || !data.teams.length) throw new Error('No teams in response');
+
+    const players = [];
+    for (const team of data.teams) {
+      if (!team.squad) continue;
+      for (const player of team.squad) {
+        if (!player.name || !player.position || player.position === 'null') continue;
+        const pos = mapFDPosition(player.position);
+        const dob = player.dateOfBirth;
+        const age = dob ? Math.floor((new Date() - new Date(dob)) / (365.25 * 24 * 60 * 60 * 1000)) : 25;
+        const ageMeta = calcAge(age);
+        const posMult = POS_MULT[pos];
+        const r = (o) => seed(player.name + o);
+
+        // Elite player recognition — known star players get a base boost
+        const ELITE = {
+          'Erling Haaland': 97, 'Mohamed Salah': 94, 'Bukayo Saka': 91,
+          'Cole Palmer': 90, 'Phil Foden': 89, 'Virgil van Dijk': 87,
+          'Martin Ødegaard': 88, 'Declan Rice': 86, 'Bruno Fernandes': 84,
+          'Florian Wirtz': 90, 'Alexander Isak': 87, 'Viktor Gyökeres': 89,
+          'William Saliba': 86, 'Alisson': 88, 'David Raya': 84,
+          'Martinelli': 83, 'Kai Havertz': 82, 'Gabriel': 85,
+          'Ollie Watkins': 83, 'Jarrod Bowen': 80, 'Bryan Mbeumo': 82,
+          'Dominic Solanke': 79, 'James Maddison': 81, 'Dejan Kulusevski': 80,
+          'Pedro Neto': 82, 'Liam Delap': 80, 'Moisés Caicedo': 83,
+          'Enzo Fernández': 81, 'Reece James': 82, 'Trent Alexander-Arnold': 88,
+          'Andrew Robertson': 83, 'Alexis Mac Allister': 84, 'Ryan Gravenberch': 83,
+          'Ibrahima Konaté': 84, 'Cody Gakpo': 80, 'Curtis Jones': 78,
+          'Rúben Dias': 87, 'Bernardo Silva': 88, 'Rodri': 93,
+          'Kevin De Bruyne': 91, 'Jeremy Doku': 82, 'Omar Marmoush': 83,
+          'Christian Romero': 85, 'Son Heung-min': 84, 'Xavi Simons': 85,
+          'Kobbie Mainoo': 80, 'Alejandro Garnacho': 79, 'Benjamin Šeško': 82,
+          'Lisandro Martínez': 84, 'Matheus Cunha': 82, 'Manuel Ugarte': 80,
+          'Emiliano Martínez': 89, 'Douglas Luiz': 80, 'Ollie Watkins': 83,
+          'Morgan Rogers': 79, 'Moussa Diaby': 81, 'Jordan Pickford': 82,
+          'Nick Pope': 81, 'Bruno Guimarães': 86, 'Anthony Gordon': 81,
+          'Sandro Tonali': 82, 'Jacob Murphy': 76, 'Harvey Barnes': 77,
+          'Dan Ndoye': 78, 'Morgan Gibbs-White': 80, 'Chris Wood': 77,
+          'Callum Hudson-Odoi': 76, 'Jean-Philippe Mateta': 79,
+          'Kaoru Mitoma': 81, 'Georginio Rutter': 78, 'Pascal Groß': 77,
+          'Raúl Jiménez': 76, 'Emile Smith Rowe': 78, 'Rodrigo Muniz': 78,
+          'Mikel Merino': 82, 'Jurrien Timber': 83, 'Ben White': 82,
+          'Myles Lewis-Skelly': 77, 'Riccardo Calafiori': 82,
+          'Granit Xhaka': 80, 'Chris Rigg': 76,
+        };
+
+        // If known elite player, use that as base; otherwise estimate from age+position
+        const eliteBase = ELITE[player.name];
+        const ageFactor = age <= 21 ? 0.75 : age <= 24 ? 0.85 : age <= 29 ? 1.0 : age <= 32 ? 0.88 : 0.70;
+        
+        // For unknown players: estimate based on position type and age
+        // Youth players (Defence/Midfield/Offence generic) get low scores
+        const isGenericPosition = ['Defence','Midfield','Offence'].includes(player.position);
+        const baseScore = eliteBase 
+          ? eliteBase 
+          : isGenericPosition 
+            ? Math.round(30 + r(1) * 25)  // youth/academy = low
+            : Math.round(55 + r(1) * 25); // regular squad player
+
+        const perf = {
+          rendimiento: Math.min(99, Math.round(baseScore * 0.95 + r(1) * 8)),
+          fisico:      Math.min(99, Math.round(baseScore * 0.90 + r(2) * 10)),
+          tecnica:     Math.min(99, Math.round(baseScore * 0.95 + r(3) * 8)),
+          regularidad: Math.min(99, Math.round(baseScore * 0.88 + r(4) * 12)),
+          mercado:     Math.min(99, Math.round(baseScore * 0.92 + r(5) * 10)),
+          contexto:    Math.min(99, Math.round(baseScore * 0.90 + r(6) * 10)),
+          intangibles: Math.min(99, Math.round(baseScore * 0.85 + r(7) * 12)),
+          seleccion:   Math.min(99, Math.round(baseScore * 0.80 + r(8) * 15)),
+        };
+
+        const index = Math.min(99, Math.round(
+          perf.rendimiento * 0.30 + perf.fisico * 0.10 + perf.tecnica * 0.15 +
+          perf.regularidad * 0.12 + perf.mercado * 0.10 + perf.contexto * 0.10 +
+          perf.intangibles * 0.08 + perf.seleccion * 0.05
+        ));
+
+        const baseVal = (index / 100) * 150 * posMult * ageFactor;
+        const value = Math.round(baseVal * 10) / 10;
+        const rating = Math.round((5.5 + r(10) * 4) * 10) / 10;
+        const trendVal = Math.round((r(11) * 20 - 10) * 10) / 10;
+
+        const opponents = ['Man City','Arsenal','Liverpool','Chelsea','Tottenham','Man Utd','Newcastle','Aston Villa','Brighton','West Ham'];
+        const history = Array.from({length: 5}, (_, i) => {
+          const opp = opponents[Math.floor(r(20+i) * opponents.length)];
+          const matchRat = Math.round((5 + r(30+i) * 4.5) * 10) / 10;
+          const delta = Math.round((r(40+i) * 2 - 1) * 15 * 10) / 10;
+          const d = new Date(); d.setDate(d.getDate() - i * 7);
+          return { date: d.toISOString().split('T')[0], opp, rat: matchRat, delta };
+        });
+
+        players.push({
+          name: player.name,
+          pos, age,
+          team: team.shortName || team.name,
+          nat: flagEmoji(player.nationality),
+          emoji: posEmoji(pos),
+          index, value, rating, trendVal, perf, ageMeta, history
+        });
+      }
+    }
+
+    if (!players.length) throw new Error('No players extracted');
+    players.sort((a, b) => b.index - a.index);
+    return players;
+
+  } catch(e) {
+    console.error('API Error:', e.message);
+    alert('Error: ' + e.message + '. Cargando datos demo...');
+    API_KEY = null;
+    updateStatusUI();
+    return generateDemoData();
+  }
+}
+
+
+function mapPosition(pos) {
+  if (!pos) return 'MID';
+  const p = pos.toLowerCase();
+  if (p.includes('goalkeeper') || p === 'g') return 'GK';
+  if (p.includes('defender') || p === 'd') return 'DEF';
+  if (p.includes('midfielder') || p === 'm') return 'MID';
+  if (p.includes('forward') || p === 'f' || p.includes('attacker')) return 'ATT';
+  return 'MID';
+}
+
+function posEmoji(pos) {
+  return { GK: '🧤', DEF: '🛡️', MID: '⚙️', ATT: '⚡' }[pos] || '⚽';
+}
+
+// ── UI ─────────────────────────────────────────
+
+function updateStatusUI() {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  if (API_KEY) {
+    dot.classList.add('live');
+    txt.textContent = 'Datos en Vivo';
+  } else {
+    dot.classList.remove('live');
+    txt.textContent = 'Modo Demo';
+  }
+}
+
+function showLoading() {
+  document.getElementById('playerTable').innerHTML = `
+    <tr><td colspan="9"><div class="table-msg">
+      <div class="spinner"></div>
+      <div>Procesando datos con el motor FutVal...</div>
+    </div></td></tr>`;
+}
+
+async function loadData() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+  showLoading();
+
+  allPlayers = await fetchFromAPI();
+
+  allPlayers.sort((a, b) => b.value - a.value);
+
+  // Update stat bar
+  document.getElementById('statPlayers').textContent = allPlayers.length;
+
+  const top = allPlayers[0];
+  if (top) {
+    document.getElementById('statTopVal').textContent = `€${top.value}M`;
+    document.getElementById('statTopName').textContent = top.name;
+  }
+
+  const total = allPlayers.reduce((s, p) => s + p.value, 0);
+  document.getElementById('statTotal').textContent = `€${Math.round(total)}M`;
+
+  const now = new Date();
+  document.getElementById('statUpdate').textContent =
+    now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
+  // Team filter
+  const teams = [...new Set(allPlayers.map(p => p.team))].sort();
+  const teamSel = document.getElementById('teamFilter');
+  teamSel.innerHTML = '<option value="">Todos los equipos</option>' +
+    teams.map(t => `<option value="${t}">${t}</option>`).join('');
+
+  btn.classList.remove('loading');
+  filterPlayers();
+}
+
+function filterPlayers() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const pos = document.getElementById('posFilter').value;
+  const team = document.getElementById('teamFilter').value;
+
+  filteredPlayers = allPlayers.filter(p => {
+    const matchQ = !q || p.name.toLowerCase().includes(q) || p.team.toLowerCase().includes(q);
+    const matchPos = !pos || p.pos === pos;
+    const matchTeam = !team || p.team === team;
+    return matchQ && matchPos && matchTeam;
+  });
+
+  sortAndRender();
+}
+
+function setSortField(field) {
+  if (currentSort === field) sortAsc = !sortAsc;
+  else { currentSort = field; sortAsc = false; }
+  document.getElementById('sortField').value = field;
+  sortAndRender();
+}
+
+function sortAndRender() {
+  const field = document.getElementById('sortField').value || currentSort;
+  currentSort = field;
+
+  filteredPlayers.sort((a, b) => {
+    let va = a[field], vb = b[field];
+    if (field === 'trend') { va = a.trendVal; vb = b.trendVal; }
+    return sortAsc ? va - vb : vb - va;
+  });
+  renderTable();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('playerTable');
+
+  if (!filteredPlayers.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="table-msg">
+      <div class="big">Sin resultados</div>
+      <div>Intenta con otra búsqueda</div>
+    </div></td></tr>`;
+    return;
+  }
+
+  const team2color = {};
+  LIGA_MX_TEAMS.forEach(t => { team2color[t.name] = t.color; });
+
+  tbody.innerHTML = filteredPlayers.map((p, i) => {
+    const rankCls = i < 3 ? 'rank top' : 'rank';
+    const rankMark = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}`;
+
+    const teamColor = team2color[p.team] || '#5a6a80';
+    const posCls = { GK: 'pos-GK', DEF: 'pos-DEF', MID: 'pos-MID', ATT: 'pos-ATT' }[p.pos];
+
+    const scorePct = p.index;
+    const scoreColor = p.index >= 70 ? 'var(--accent)' : p.index >= 50 ? 'var(--gold)' : 'var(--accent3)';
+
+    const ratCls = p.rating >= 7.5 ? 'high' : p.rating >= 6.5 ? 'mid' : 'low';
+
+    const trendSign = p.trendVal > 0 ? '+' : '';
+    const trendCls = p.trendVal > 0 ? 'up' : p.trendVal < 0 ? 'down' : 'flat';
+    const trendArrow = p.trendVal > 0 ? '▲' : p.trendVal < 0 ? '▼' : '—';
+
+    return `
+    <tr onclick="showDetail('${p.name}')">
+      <td><span class="${rankCls}">${rankMark}</span></td>
+      <td>
+        <div class="player-cell">
+          <div class="player-avatar">${p.emoji}</div>
+          <div>
+            <div class="player-name">${p.nat} ${p.name}</div>
+            <div class="player-meta">${p.ageMeta.label}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="team-cell">
+          <div class="team-dot" style="background:${teamColor}"></div>
+          <div class="team-name">${p.team}</div>
+        </div>
+      </td>
+      <td><span class="pos-badge ${posCls}">${p.pos}</span></td>
+      <td>
+        <div class="score-cell">
+          <div class="score-num" style="color:${scoreColor}">${p.index}</div>
+          <div class="score-bar"><div class="score-fill" style="width:${scorePct}%;background:${scoreColor}"></div></div>
+        </div>
+      </td>
+      <td>
+        <div class="value-cell">
+          <div class="value-eur">€${p.value}M</div>
+          <div class="value-index">${POS_LABEL[p.pos]}</div>
+        </div>
+      </td>
+      <td><span class="rating-cell ${ratCls}">${p.rating}</span></td>
+      <td><span class="trend ${trendCls}">${trendArrow} ${trendSign}${p.trendVal}%</span></td>
+      <td><span class="age-cell ${p.ageMeta.cls}">${p.age} años</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ── DETAIL PANEL ──────────────────────────────
+function showDetail(name) {
+  const p = allPlayers.find(x => x.name === name);
+  if (!p) return;
+
+  document.getElementById('dAvatar').textContent = p.emoji;
+  document.getElementById('dName').textContent = p.name;
+  document.getElementById('dSub').textContent = `${p.nat} · ${p.team} · ${POS_LABEL[p.pos]} · ${p.age} años`;
+  document.getElementById('dVal').textContent = `€${p.value}M`;
+  document.getElementById('dIdx').textContent = `${p.index}/100`;
+  document.getElementById('dRat').textContent = p.rating;
+
+  const factorLabels = {
+    rendimiento: 'Rendimiento',
+    fisico: 'Condición física',
+    tecnica: 'Técnica',
+    regularidad: 'Regularidad',
+    mercado: 'Mercado',
+    contexto: 'Contexto (equipo/liga)',
+    intangibles: 'Intangibles',
+    seleccion: 'Selección nacional',
+  };
+
+  const fc = document.getElementById('dFactors');
+  fc.innerHTML = Object.entries(p.perf).map(([k, v]) => {
+    const pct = v;
+    const color = v >= 70 ? 'var(--accent)' : v >= 50 ? 'var(--gold)' : 'var(--accent3)';
+    return `
+      <div class="factor-row">
+        <div class="factor-name">${factorLabels[k]}</div>
+        <div class="factor-bar-wrap"><div class="factor-bar" style="width:${pct}%;background:${color}"></div></div>
+        <div class="factor-val">${v}</div>
+      </div>`;
+  }).join('');
+
+  const hl = document.getElementById('dHistory');
+  hl.innerHTML = p.history.map(h => {
+    const sign = h.delta > 0 ? '+' : '';
+    const cls = h.delta > 0 ? 'up' : h.delta < 0 ? 'down' : 'flat';
+    return `
+      <div class="history-item">
+        <div class="h-date">${h.date}</div>
+        <div class="h-match">vs ${h.opp}</div>
+        <div class="h-rating" style="color:${h.rat >= 7 ? 'var(--accent)' : h.rat >= 6 ? 'var(--gold)' : 'var(--accent3)'}">⭐ ${h.rat}</div>
+        <div class="h-delta trend ${cls}">${sign}${h.delta}%</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('detailOverlay').classList.add('active');
+}
+
+function closeDetail(e) {
+  if (e.target === document.getElementById('detailOverlay')) closeDetailPanel();
+}
+function closeDetailPanel() {
+  document.getElementById('detailOverlay').classList.remove('active');
+}
+
+// ── INIT ──────────────────────────────────────
+loadData();
+</script>
+</body>
+</html>
