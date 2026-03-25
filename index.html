@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -920,7 +921,7 @@ function mapEntry(entry) {
   const passes = stats.passes?.accuracy || 70;
   const appearances = stats.games?.appearences || 1;
 
-  if (minutes < 90) return null;
+  if (minutes < 1) return null;
 
   const perf = {
     rendimiento: Math.min(100, Math.round(((rating - 5) / 4) * 60 + (goals * 4) + (assists * 3))),
